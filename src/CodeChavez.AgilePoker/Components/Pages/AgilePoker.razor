@@ -1,0 +1,130 @@
+﻿@page "/"
+@using CodeChavez.AgilePoker.DTOs
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager _navManager
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<PageTitle>Agile Poker</PageTitle>
+
+<MudAppBar Elevation="1" Dense="true">
+    <MudText>Agile Poker: Fibonacci</MudText>
+    <MudSpacer />
+    🙈🙉🙊
+    <MudSpacer />
+    <MudIconButton Color="Color.Inherit" Href="https://github.com/codechavez" Target="_blank" Style="padding:0;">
+        <img src="/logos/codechavez.png" alt="CodeChavez" style="width:24px; height:24px;" />
+    </MudIconButton>
+</MudAppBar>
+
+@if (!connected)
+{
+    <MudTextField T="string" Label="Player Name" Variant="Variant.Outlined" @bind-Value="playerName" Placeholder="Enter your name"></MudTextField>
+    <MudButton Variant="Variant.Filled" FullWidth="true" Color="Color.Primary" OnClick="Connect">Join</MudButton>
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12">
+            <MudStack>
+                <MudAlert Severity="Severity.Info">Invite players by sharing the URL below!</MudAlert>
+                <MudTextField T="string"
+                              Label="Invite Players"
+                              ReadOnly="true"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.End"
+                              Value="@($"{_navManager.BaseUri}?session={sessionId}")"
+                              AdornmentIcon="@Icons.Material.Filled.ContentCopy"
+                              OnAdornmentClick="@CopyUrl">
+                </MudTextField>
+
+            </MudStack>
+        </MudItem>
+        <MudItem xs="12">
+            <MudStack Spacing="10">
+                <MudText Typo="Typo.h4">The Game:</MudText>
+                <MudPaper Elevation="0" Class="d-flex align-center justify-center mud-width-full">
+                    @foreach (var p in players)
+                    {
+                        <MudStack Style="margin-right: 10px;">
+                            <MudPaper Class="pa-7 align-center justify-center mud-theme-primary rounded-xl" Elevation="5">
+                                <MudText Typo="Typo.h4">@GetVoteDisplay(p)</MudText>
+                            </MudPaper>
+                            <MudText Typo="Typo.h6">@p.Name</MudText>
+                        </MudStack>
+                    }
+                </MudPaper>
+                <MudStack Row="true" class="align-center justify-center">
+                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.RemoveRedEye" OnClick="RevealVotes" Color="Color.Primary">Reveal</MudButton>
+                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Clear" OnClick="ResetVotes">Reset</MudButton>
+                </MudStack>
+            </MudStack>
+        </MudItem>
+         <MudItem xs="12"></MudItem>
+        <MudItem xs="12">
+            <MudPaper Elevation="0" Class="d-flex align-center justify-center mud-width-full py-3">
+                <MudText Typo="Typo.h5">👇 Pick your card! 👇</MudText>
+            </MudPaper>
+            <MudPaper Elevation="0" Class="d-flex align-center justify-center mud-width-full py-8">
+                <MudStack Row="true">
+                    @foreach (var card in cards)
+                    {
+                        <MudPaper @onclick="() => SendVote(card)" Class="pa-8 mud-theme-primary rounded-xl" Elevation="5">
+                            <MudText Typo="Typo.h4">@card</MudText>
+                        </MudPaper>
+                    }
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+@code {
+    private string sessionId = "";
+    private HubConnection? hub;
+    private string playerName = "";
+    private bool connected = false;
+    private List<PlayerVote> players = new();
+    private readonly string[] cards = ["1", "2", "3", "5", "8", "13", "21", "?", "☕"];
+
+    protected override void OnInitialized()
+    {
+        var uri = _navManager.ToAbsoluteUri(_navManager.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        sessionId = query["session"] ?? Guid.NewGuid().ToString();
+
+        if (!uri.Query.Contains("session"))
+            _navManager.NavigateTo($"/?session={sessionId}", forceLoad: true);
+    }
+
+    private async Task Connect()
+    {
+        hub = new HubConnectionBuilder()
+        .WithUrl(_navManager.ToAbsoluteUri("/pokerhub"))
+        .WithAutomaticReconnect()
+        .Build();
+
+        hub.On<IEnumerable<PlayerVote>>("PlayersUpdated", (data) =>
+        {
+            players = data.ToList();
+            InvokeAsync(StateHasChanged);
+        });
+
+        await hub.StartAsync();
+        await hub.SendAsync("Join", sessionId, playerName);
+        connected = true;
+    }
+
+    private Task SendVote(string vote) => hub!.SendAsync("Vote", sessionId, vote);
+    private Task RevealVotes() => hub!.SendAsync("Reveal", sessionId);
+    private Task ResetVotes() => hub!.SendAsync("Reset", sessionId);
+
+    private string GetVoteDisplay(PlayerVote player) =>
+    player.Revealed ? player.Vote : (player.HasVoted ? "🙈" : "💭");
+
+    private async Task CopyUrl()
+    {
+        var url = $"{_navManager.BaseUri}?session={sessionId}";
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", url);
+        Snackbar.Add("Copied to clipboard!", Severity.Success);
+    }
+}
