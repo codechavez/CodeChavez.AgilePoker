@@ -1,6 +1,6 @@
 ﻿@inherits LayoutComponentBase
 
-<MudThemeProvider IsDarkMode="false" />
+<MudThemeProvider IsDarkMode="false" Theme="@_customTheme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -11,3 +11,27 @@
     </MudMainContent>
 </MudLayout>
 
+@code
+{
+    private MudTheme _customTheme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = Colors.BlueGray.Default,
+            Secondary = Colors.Pink.Accent1,
+            Surface = "#FFFFFF",
+            AppbarBackground = Colors.BlueGray.Lighten2,
+            DrawerBackground = "#FFFFFF",
+            TextPrimary = "#212121",
+            TextSecondary = "#757575"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = Colors.Indigo.Lighten2,
+            Background = "#1E1E2F",
+            Surface = "#2A2A3B",
+            TextPrimary = "#FFFFFF",
+            TextSecondary = "#CCCCCC"
+        }
+    };
+}
