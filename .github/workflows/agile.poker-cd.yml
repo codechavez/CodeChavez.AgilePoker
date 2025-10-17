@@ -1,0 +1,43 @@
+name: CodeChavez Agile Poker CD
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+    build-and-push:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: ⚔️ Checkout repository
+              uses: actions/checkout@v3
+
+            - name: 🛠️ Setup .NET 9
+              uses: actions/setup-dotnet@v3
+              with:
+                dotnet-version: '9.0.x'
+
+            - name: 📦 Restore packages
+              run: dotnet restore
+
+            - name: 🏗️ Build the app
+              run: dotnet build --no-restore --configuration Release
+
+            - name: 🚀 Publish the app
+              run: dotnet publish --no-build --configuration Release --output ./publish
+
+            - name: 🔐 Log in to Docker Hub
+              uses: docker/login-action@v2
+              with:
+                username: ${{ secrets.DOCKER_USERNAME }}
+                password: ${{ secrets.DOCKER_PASSWORD }}              
+              
+            - name: 🐳 Build Docker image
+              run: |
+                docker build -f .docker/agile.poker.Dockerfile -t teslacode/codechavez.agile.poker:latest .
+
+            - name: 📤 Push Docker image to Docker Hub
+              run: |
+                docker push teslacode/codechavez.agile.poker:latest
+
