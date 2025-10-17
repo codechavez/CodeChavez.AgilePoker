@@ -10,7 +10,7 @@
           "ASPNETCORE_ENVIRONMENT": "Development"
         }
       },
-      "https": {
+      "AgilePoker.HTTPS": {
         "commandName": "Project",
         "dotnetRunMessages": true,
         "launchBrowser": true,

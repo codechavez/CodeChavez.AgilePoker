@@ -1,0 +1,14 @@
+.poker-card {
+
+}
+
+.poker-card:hover {
+    background-color: #d1c4e9;
+    transform: scale(1.15);
+}
+
+.poker-card.selected {
+    background-color: #d1c4e9;
+    transform: scale(1.20);
+    border: 2px solid #60ec9d;
+}

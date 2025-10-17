@@ -19,7 +19,8 @@
 
 @if (!connected)
 {
-    <MudTextField T="string" Label="Player Name" Variant="Variant.Outlined" @bind-Value="playerName" Placeholder="Enter your name"></MudTextField>
+    <MudTextField T="string" Label="Player Name" Variant="Variant.Outlined" @bind-Value="playerName"
+        Placeholder="Enter your name"></MudTextField>
     <MudButton Variant="Variant.Filled" FullWidth="true" Color="Color.Primary" OnClick="Connect">Join</MudButton>
 }
 else
@@ -27,15 +28,10 @@ else
     <MudGrid>
         <MudItem xs="12">
             <MudStack>
-                <MudAlert Severity="Severity.Info">Invite players by sharing the URL below!</MudAlert>
-                <MudTextField T="string"
-                              Label="Invite Players"
-                              ReadOnly="true"
-                              Variant="Variant.Outlined"
-                              Adornment="Adornment.End"
-                              Value="@($"{_navManager.BaseUri}?session={sessionId}")"
-                              AdornmentIcon="@Icons.Material.Filled.ContentCopy"
-                              OnAdornmentClick="@CopyUrl">
+                <MudTextField T="string" Label="Invite players by sharing the URL below!" ReadOnly="true"
+                    Variant="Variant.Outlined" Adornment="Adornment.End"
+                    Value="@($"{_navManager.BaseUri}?session={sessionId}")"
+                    AdornmentIcon="@Icons.Material.Filled.ContentCopy" OnAdornmentClick="@CopyUrl">
                 </MudTextField>
 
             </MudStack>
@@ -55,12 +51,14 @@ else
                     }
                 </MudPaper>
                 <MudStack Row="true" class="align-center justify-center">
-                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.RemoveRedEye" OnClick="RevealVotes" Color="Color.Primary">Reveal</MudButton>
-                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Clear" OnClick="ResetVotes">Reset</MudButton>
+                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.RemoveRedEye"
+                        OnClick="RevealVotes" Color="Color.Primary">Reveal</MudButton>
+                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Clear" OnClick="ResetVotes">Reset
+                    </MudButton>
                 </MudStack>
             </MudStack>
         </MudItem>
-         <MudItem xs="12"></MudItem>
+        <MudItem xs="12"></MudItem>
         <MudItem xs="12">
             <MudPaper Elevation="0" Class="d-flex align-center justify-center mud-width-full py-3">
                 <MudText Typo="Typo.h5">👇 Pick your card! 👇</MudText>
@@ -69,16 +67,26 @@ else
                 <MudStack Row="true">
                     @foreach (var card in cards)
                     {
-                        <MudPaper @onclick="() => SendVote(card)" Class="pa-8 mud-theme-primary rounded-xl" Elevation="5">
+                        <MudPaper
+                            Class="@GetCardClass(card)"
+                            @onclick="@(() => SendVote(card))"
+                            Style="cursor: pointer;" Elevation="5">
                             <MudText Typo="Typo.h4">@card</MudText>
                         </MudPaper>
                     }
                 </MudStack>
             </MudPaper>
         </MudItem>
+        <MudItem xs="12">
+            <MudStack Spacing="5">
+                <MudText Typo="Typo.h6">NOTE: If need an effort greater than 21, you probably have a different issue</MudText>
+                <MudText Typo="Typo.h6">NOTE: If you refresh you will start over</MudText>
+            </MudStack>
+        </MudItem>
     </MudGrid>
 }
 @code {
+    private string? selectedCard = null;
     private string sessionId = "";
     private HubConnection? hub;
     private string playerName = "";
@@ -114,12 +122,27 @@ else
         connected = true;
     }
 
-    private Task SendVote(string vote) => hub!.SendAsync("Vote", sessionId, vote);
-    private Task RevealVotes() => hub!.SendAsync("Reveal", sessionId);
-    private Task ResetVotes() => hub!.SendAsync("Reset", sessionId);
+    private async Task SendVote(string vote)
+    {
+        selectedCard = vote;
+        await hub!.SendAsync("Vote", sessionId, vote);
+    }
+
+    private async Task RevealVotes() => await hub!.SendAsync("Reveal", sessionId);
+    
+    private async Task ResetVotes()
+    {
+        selectedCard = null;
+        await hub!.SendAsync("Reset", sessionId);
+    }
 
     private string GetVoteDisplay(PlayerVote player) =>
     player.Revealed ? player.Vote : (player.HasVoted ? "🙈" : "💭");
+
+    private string GetCardClass(string card)
+    {
+        return card == selectedCard ? "pa-8 mud-theme-primary rounded-xl poker-card selected" : "pa-8 mud-theme-primary rounded-xl poker-card";
+    }
 
     private async Task CopyUrl()
     {
