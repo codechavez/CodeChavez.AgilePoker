@@ -15,14 +15,15 @@ public class PokerHub : Hub
             Sessions[sessionId] = session;
         }
 
-        session[Context.ConnectionId] = new PlayerVote { Name = playerName };
+        session[Context.ConnectionId] = new PlayerVote { Name = playerName, ConnectionId = Context.ConnectionId };
         await Groups.AddToGroupAsync(Context.ConnectionId, sessionId);
         await Clients.Group(sessionId).SendAsync("PlayersUpdated", session.Values);
     }
 
     public async Task Vote(string sessionId, string vote)
     {
-        if (Sessions.TryGetValue(sessionId, out var session) && session.TryGetValue(Context.ConnectionId, out var player))
+        if (Sessions.TryGetValue(sessionId, out var session) 
+            && session.TryGetValue(Context.ConnectionId, out var player))
         {
             player.Vote = vote;
             player.HasVoted = true;
@@ -42,6 +43,17 @@ public class PokerHub : Hub
         }
     }
 
+    public async Task Hide(string sessionId)
+    {
+        if (Sessions.TryGetValue(sessionId, out var session))
+        {
+            foreach (var player in session.Values)
+                player.Revealed = false;
+
+            await Clients.Group(sessionId).SendAsync("PlayersUpdated", session.Values);
+        }
+    }
+
     public async Task Reset(string sessionId)
     {
         if (Sessions.TryGetValue(sessionId, out var session))
@@ -54,6 +66,23 @@ public class PokerHub : Hub
             }
 
             await Clients.Group(sessionId).SendAsync("PlayersUpdated", session.Values);
+        }
+    }
+
+    public async Task UpdatePlayerName(string sessionId, string newName)
+    {
+        if(Sessions.TryGetValue(sessionId, out var players))
+        {
+            var connectionId = Context.ConnectionId;
+
+            // find the player by connection id
+            if (players.TryGetValue(connectionId, out var player))
+            {
+                player.Name = newName;
+
+                // notify everyone in the same session
+                await Clients.Group(sessionId).SendAsync("PlayersUpdated", players.Values);
+            }
         }
     }
 

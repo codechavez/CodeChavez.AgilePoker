@@ -7,10 +7,18 @@
 
 <PageTitle>Agile Poker</PageTitle>
 
+<HeadContent>
+    <title>Agile Poker | Planning Poker for Scrum Teams</title>
+    <meta name="description" content="Agile Poker is a planning poker tool that helps Scrum teams estimate story points collaboratively using gamified estimation techniques." />
+    <meta name="keywords" content="Agile Poker, Planning Poker, Scrum, Story Point Estimation, Agile Estimation Tools, Blazor Agile Poker" />
+    <meta property="og:title" content="Agile Poker | Planning Poker for Scrum Teams" />
+    <meta property="og:description" content="Use Agile Poker to make collaborative estimations easier and more accurate with your Agile team. Free and open source!" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://codechavez-agilepoker.azurewebsites.net" />
+</HeadContent>
+
 <MudAppBar Elevation="1" Dense="true">
-    <MudText>Agile Poker: Fibonacci</MudText>
-    <MudSpacer />
-    🙈🙉🙊
+    <MudText>Agile Poker</MudText>
     <MudSpacer />
     <MudIconButton Color="Color.Inherit" Href="https://github.com/codechavez" Target="_blank" Style="padding:0;">
         <img src="/logos/codechavez.png" alt="CodeChavez" style="width:24px; height:24px;" />
@@ -20,25 +28,50 @@
 @if (!connected)
 {
     <MudTextField T="string" Label="Player Name" Variant="Variant.Outlined" @bind-Value="playerName"
-        Placeholder="Enter your name"></MudTextField>
+                  Placeholder="Enter your name"></MudTextField>
     <MudButton Variant="Variant.Filled" FullWidth="true" Color="Color.Primary" OnClick="Connect">Join</MudButton>
 }
 else
 {
     <MudGrid>
         <MudItem xs="12">
-            <MudStack>
-                <MudTextField T="string" Label="Invite players by sharing the URL below!" ReadOnly="true"
-                    Variant="Variant.Outlined" Adornment="Adornment.End"
-                    Value="@($"{_navManager.BaseUri}?session={sessionId}")"
-                    AdornmentIcon="@Icons.Material.Filled.ContentCopy" OnAdornmentClick="@CopyUrl">
-                </MudTextField>
-
-            </MudStack>
+                <MudStack Row="true" Spacing="5">
+                    <MudTextField T="string"
+                                  ReadOnly="@isReadOnlyPlayerName"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@(isReadOnlyPlayerName ? @Icons.Material.Filled.Edit : Icons.Material.Filled.Save)"
+                                  Label="Player"
+                                  @bind-Value="playerName"
+                                  OnAdornmentClick="@EditPlayName"
+                                  OnBlur="@OnNameBlur">
+                    </MudTextField>
+                    <MudTextField T="string" Label="Invite players by sharing the URL below!"
+                                  ReadOnly="true"
+                                  Variant="Variant.Outlined" Adornment="Adornment.End"
+                                  Value="@($"{_navManager.BaseUri}?session={sessionId}")"
+                                  AdornmentIcon="@Icons.Material.Filled.ContentCopy"
+                                  OnAdornmentClick="@CopyUrl">
+                    </MudTextField>
+                </MudStack>
         </MudItem>
+        <MudItem xs="12"></MudItem>
+        @if (isVotesRevealed)
+        {
+            <MudItem xs="12">
+                <MudStack Spacing="5" AlignItems="AlignItems.Center" Class="align-center justify-center" Row="true">
+                    <MudStack Spacing="5">
+                        <MudText Align="Align.Center" Typo="Typo.h5">Average</MudText>
+                        <MudPaper Class="pa-7 align-center justify-center mud-theme-secondary rounded-xl" Elevation="5">
+                            <MudText Typo="Typo.h4">@averageVote</MudText>
+                        </MudPaper>
+                    </MudStack>
+                </MudStack>
+            </MudItem>
+        }
+
         <MudItem xs="12">
             <MudStack Spacing="10">
-                <MudText Typo="Typo.h4">The Game:</MudText>
                 <MudPaper Elevation="0" Class="d-flex align-center justify-center mud-width-full">
                     @foreach (var p in players)
                     {
@@ -46,14 +79,21 @@ else
                             <MudPaper Class="pa-7 align-center justify-center mud-theme-primary rounded-xl" Elevation="5">
                                 <MudText Typo="Typo.h4">@GetVoteDisplay(p)</MudText>
                             </MudPaper>
-                            <MudText Typo="Typo.h6">@p.Name</MudText>
+                            <MudText Align="Align.Center" Typo="Typo.h6">@p.Name</MudText>
                         </MudStack>
                     }
                 </MudPaper>
                 <MudStack Row="true" class="align-center justify-center">
-                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.RemoveRedEye"
-                        OnClick="RevealVotes" Color="Color.Primary">Reveal</MudButton>
-                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Clear" OnClick="ResetVotes">Reset
+                    <MudButton Variant="Variant.Filled"
+                               StartIcon="@(isVotesRevealed ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                               OnClick="RevealVotes"
+                               Color="Color.Primary">
+                        Reveal
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled"
+                               StartIcon="@Icons.Material.Filled.Clear"
+                               OnClick="ResetVotes">
+                        Reset
                     </MudButton>
                 </MudStack>
             </MudStack>
@@ -67,10 +107,9 @@ else
                 <MudStack Row="true">
                     @foreach (var card in cards)
                     {
-                        <MudPaper
-                            Class="@GetCardClass(card)"
-                            @onclick="@(() => SendVote(card))"
-                            Style="cursor: pointer;" Elevation="5">
+                        <MudPaper Class="@GetCardClass(card)"
+                                  @onclick="@(() => SendVote(card))"
+                                  Style="cursor: pointer;" Elevation="5">
                             <MudText Typo="Typo.h4">@card</MudText>
                         </MudPaper>
                     }
@@ -87,6 +126,9 @@ else
 }
 @code {
     private string? selectedCard = null;
+    private double averageVote = 0.0;
+    private bool isReadOnlyPlayerName = true;
+    private bool isVotesRevealed = false;
     private string sessionId = "";
     private HubConnection? hub;
     private string playerName = "";
@@ -114,6 +156,7 @@ else
         hub.On<IEnumerable<PlayerVote>>("PlayersUpdated", (data) =>
         {
             players = data.ToList();
+            CalculateAverage();
             InvokeAsync(StateHasChanged);
         });
 
@@ -128,11 +171,19 @@ else
         await hub!.SendAsync("Vote", sessionId, vote);
     }
 
-    private async Task RevealVotes() => await hub!.SendAsync("Reveal", sessionId);
-    
+    private async Task RevealVotes()
+    {
+        isVotesRevealed = !isVotesRevealed;
+        if (isVotesRevealed)
+            await hub!.SendAsync("Reveal", sessionId);
+        else
+            await hub!.SendAsync("Hide", sessionId);
+    }
+
     private async Task ResetVotes()
     {
         selectedCard = null;
+        isVotesRevealed = false;
         await hub!.SendAsync("Reset", sessionId);
     }
 
@@ -149,5 +200,49 @@ else
         var url = $"{_navManager.BaseUri}?session={sessionId}";
         await JS.InvokeVoidAsync("navigator.clipboard.writeText", url);
         Snackbar.Add("Copied to clipboard!", Severity.Success);
+    }
+
+    private async Task EditPlayName()
+    {
+        isReadOnlyPlayerName = !isReadOnlyPlayerName;
+        if (isReadOnlyPlayerName && hub is not null)
+        {
+            await hub.SendAsync("UpdatePlayerName", sessionId, playerName);
+        }
+    }
+
+    private async Task OnNameBlur()
+    {
+        if (!isReadOnlyPlayerName)
+            return;
+
+        if (hub is not null)
+        {
+            await hub.SendAsync("UpdatePlayerName", sessionId, playerName);
+        }
+    }
+
+    private void CalculateAverage()
+    {
+        if (!isVotesRevealed)
+        {
+            averageVote = 0;
+            return;
+        }
+
+        var numericVotes = players
+            .Where(p => p.Revealed)
+            .Select(p => p.Vote)
+            .Where(v => double.TryParse(v, out _))
+            .Select(v => double.Parse(v))
+            .ToList();
+
+        if (numericVotes.Count == 0)
+        {
+            averageVote = 0;
+            return;
+        }
+
+        averageVote = Math.Round(numericVotes.Average(), 2);
     }
 }
