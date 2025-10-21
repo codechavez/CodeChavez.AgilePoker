@@ -1,5 +1,6 @@
 using CodeChavez.AgilePoker.Components;
 using CodeChavez.AgilePoker.Services;
+using Microsoft.AspNetCore.HttpOverrides;
 using MudBlazor.Services;
 
 
@@ -27,6 +28,10 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseAntiforgery();
 app.MapHub<PokerHub>("/pokerhub");
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

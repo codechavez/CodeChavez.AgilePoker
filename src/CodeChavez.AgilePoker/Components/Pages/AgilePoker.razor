@@ -27,7 +27,10 @@
 
 @if (!connected)
 {
-    <MudTextField T="string" Label="Player Name" Variant="Variant.Outlined" @bind-Value="playerName"
+    <MudTextField T="string"
+                  Label="Player Name"
+                  Variant="Variant.Outlined" @bind-Value="playerName"
+                  MaxLength="20"
                   Placeholder="Enter your name"></MudTextField>
     <MudButton Variant="Variant.Filled" FullWidth="true" Color="Color.Primary" OnClick="Connect">Join</MudButton>
 }
@@ -35,25 +38,26 @@ else
 {
     <MudGrid>
         <MudItem xs="12">
-                <MudStack Row="true" Spacing="5">
-                    <MudTextField T="string"
-                                  ReadOnly="@isReadOnlyPlayerName"
-                                  Variant="Variant.Outlined"
-                                  Adornment="Adornment.End"
-                                  AdornmentIcon="@(isReadOnlyPlayerName ? @Icons.Material.Filled.Edit : Icons.Material.Filled.Save)"
-                                  Label="Player"
-                                  @bind-Value="playerName"
-                                  OnAdornmentClick="@EditPlayName"
-                                  OnBlur="@OnNameBlur">
-                    </MudTextField>
-                    <MudTextField T="string" Label="Invite players by sharing the URL below!"
-                                  ReadOnly="true"
-                                  Variant="Variant.Outlined" Adornment="Adornment.End"
-                                  Value="@($"{_navManager.BaseUri}?session={sessionId}")"
-                                  AdornmentIcon="@Icons.Material.Filled.ContentCopy"
-                                  OnAdornmentClick="@CopyUrl">
-                    </MudTextField>
-                </MudStack>
+            <MudStack Row="true" Spacing="5">
+                <MudTextField T="string"
+                              ReadOnly="@isReadOnlyPlayerName"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@(isReadOnlyPlayerName ? @Icons.Material.Filled.Edit : Icons.Material.Filled.Save)"
+                              Label="Player"
+                              MaxLength="20"
+                              @bind-Value="playerName"
+                              OnAdornmentClick="@EditPlayName"
+                              OnBlur="@OnNameBlur">
+                </MudTextField>
+                <MudTextField T="string" Label="Invite players by sharing the URL below!"
+                              ReadOnly="true"
+                              Variant="Variant.Outlined" Adornment="Adornment.End"
+                              Value="@($"{_navManager.BaseUri}?session={sessionId}")"
+                              AdornmentIcon="@Icons.Material.Filled.ContentCopy"
+                              OnAdornmentClick="@CopyUrl">
+                </MudTextField>
+            </MudStack>
         </MudItem>
         <MudItem xs="12"></MudItem>
         @if (isVotesRevealed)
@@ -62,7 +66,7 @@ else
                 <MudStack Spacing="5" AlignItems="AlignItems.Center" Class="align-center justify-center" Row="true">
                     <MudStack Spacing="5">
                         <MudText Align="Align.Center" Typo="Typo.h5">Average</MudText>
-                        <MudPaper Class="pa-7 align-center justify-center mud-theme-secondary rounded-xl" Elevation="5">
+                        <MudPaper Class="pa-9 align-center justify-center mud-theme-secondary rounded-l" Elevation="5">
                             <MudText Typo="Typo.h4">@averageVote</MudText>
                         </MudPaper>
                     </MudStack>
@@ -71,18 +75,21 @@ else
         }
 
         <MudItem xs="12">
-            <MudStack Spacing="10">
-                <MudPaper Elevation="0" Class="d-flex align-center justify-center mud-width-full">
+            <MudStack Spacing="10" AlignItems="AlignItems.Center">
+                <MudGrid Style="width: 600px;">
                     @foreach (var p in players)
                     {
-                        <MudStack Style="margin-right: 10px;">
-                            <MudPaper Class="pa-7 align-center justify-center mud-theme-primary rounded-xl" Elevation="5">
-                                <MudText Typo="Typo.h4">@GetVoteDisplay(p)</MudText>
-                            </MudPaper>
-                            <MudText Align="Align.Center" Typo="Typo.h6">@p.Name</MudText>
-                        </MudStack>
+                        <MudItem xs="12" sm="6" md="6" lg="2" xl="2">
+                            <MudStack AlignItems="AlignItems.Center">
+                                <MudPaper Class="mud-theme-primary" Style="width:75px;height:100px;" Elevation="5">
+                                    <MudText Typo="Typo.h3" style="padding-top:20px;"
+                                             Align="Align.Center">@GetVoteDisplay(p)</MudText>
+                                </MudPaper>
+                                <MudText Align="Align.Center" Typo="Typo.body2">@p.Name</MudText>
+                            </MudStack>
+                        </MudItem>
                     }
-                </MudPaper>
+                </MudGrid>
                 <MudStack Row="true" class="align-center justify-center">
                     <MudButton Variant="Variant.Filled"
                                StartIcon="@(isVotesRevealed ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
@@ -118,8 +125,17 @@ else
         </MudItem>
         <MudItem xs="12">
             <MudStack Spacing="5">
-                <MudText Typo="Typo.h6">NOTE: If need an effort greater than 21, you probably have a different issue</MudText>
-                <MudText Typo="Typo.h6">NOTE: If you refresh you will start over</MudText>
+                <MudText><b>Welcome</b> to this super lightweight Agile Poker. As such the functionality is very limited and specific to use Fibonacci numbers but only 
+                    to 21 because let's the honest if you are efforting something above that, you probably need to break it down to smaller pieces. 
+                    This application does not stores data it's all real time feeds.</MudText>
+                <MudText><b>How to use</b></MudText>
+                <MudText><b>1</b> Enter your name. When selecting a name please <b>Be Respecful. Be Kind.</b></MudText>
+                <MudText><b>2</b> Feel free to share the link to have more piers joining.</MudText>
+                <MudText><b>3</b> Select your effort and remember the ☕ emoji means I need a break.</MudText>
+                <MudText><b>4</b> When ready to reveal, just one person click on the "Reveal" button.</MudText>
+                <MudText><b>5</b> Remember to "Reset"" the vote for the next round.</MudText>
+
+                <MudText Typo="Typo.h6">Term of Use: This is offer free of charge therefore, by using this application/website you are automatically releasing the author of ANY responsibility or lialibility.</MudText>
             </MudStack>
         </MudItem>
     </MudGrid>
@@ -192,7 +208,7 @@ else
 
     private string GetCardClass(string card)
     {
-        return card == selectedCard ? "pa-8 mud-theme-primary rounded-xl poker-card selected" : "pa-8 mud-theme-primary rounded-xl poker-card";
+        return card == selectedCard ? "pa-8 mud-theme-primary rounded-l poker-card selected" : "pa-8 mud-theme-primary rounded-l poker-card";
     }
 
     private async Task CopyUrl()

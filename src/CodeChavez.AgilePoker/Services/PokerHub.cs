@@ -5,98 +5,123 @@ namespace CodeChavez.AgilePoker.Services;
 
 public class PokerHub : Hub
 {
-    private static readonly Dictionary<string, Dictionary<string, PlayerVote>> Sessions = new();
+    private static readonly Dictionary<string, List<PlayerVote>> Sessions = new();
 
     public async Task Join(string sessionId, string playerName)
     {
-        if (!Sessions.TryGetValue(sessionId, out var session))
+        var ip = Context.GetHttpContext()?.Connection.RemoteIpAddress?.ToString();
+        if (string.IsNullOrEmpty(ip))
         {
-            session = new();
-            Sessions[sessionId] = session;
+            await Clients.Caller.SendAsync("Error", "Could not determine IP address.");
+            return;
         }
 
-        session[Context.ConnectionId] = new PlayerVote { Name = playerName, ConnectionId = Context.ConnectionId };
+        if (!Sessions.ContainsKey(sessionId))
+            Sessions[sessionId] = [];
+
+        var players = Sessions[sessionId];
+
+        var existing = players.FirstOrDefault(p => p.IpAddress == ip);
+        if (existing != null)
+        {
+            // Option A: Replace old connection
+            existing.ConnectionId = Context.ConnectionId;
+            existing.Name = playerName;
+            existing.Revealed = false;
+            existing.Vote = string.Empty;
+        }
+        else
+        {
+            // Option B: Allow new connection if IP is not used
+            players.Add(new PlayerVote
+            {
+                Name = playerName,
+                ConnectionId = Context.ConnectionId,
+                IpAddress = ip
+            });
+        }
+
         await Groups.AddToGroupAsync(Context.ConnectionId, sessionId);
-        await Clients.Group(sessionId).SendAsync("PlayersUpdated", session.Values);
+        await Clients.Group(sessionId).SendAsync("PlayersUpdated", players);
     }
 
     public async Task Vote(string sessionId, string vote)
     {
-        if (Sessions.TryGetValue(sessionId, out var session) 
-            && session.TryGetValue(Context.ConnectionId, out var player))
+        if (Sessions.TryGetValue(sessionId, out var players))
         {
-            player.Vote = vote;
-            player.HasVoted = true;
-            await Clients.Group(sessionId).SendAsync("PlayersUpdated", session.Values);
+            var player = players.FirstOrDefault(p => p.ConnectionId == Context.ConnectionId);
+            if (player != null)
+            {
+                player.Vote = vote;
+                player.HasVoted = true;
+                await Clients.Group(sessionId).SendAsync("PlayersUpdated", players);
+            }
         }
     }
 
     public async Task Reveal(string sessionId)
     {
-        if (Sessions.TryGetValue(sessionId, out var session))
+        if (Sessions.TryGetValue(sessionId, out var players))
         {
-            foreach (var player in session.Values)
+            foreach (var player in players)
                 player.Revealed = true;
 
-
-            await Clients.Group(sessionId).SendAsync("PlayersUpdated", session.Values);
+            await Clients.Group(sessionId).SendAsync("PlayersUpdated", players);
         }
     }
 
     public async Task Hide(string sessionId)
     {
-        if (Sessions.TryGetValue(sessionId, out var session))
+        if (Sessions.TryGetValue(sessionId, out var players))
         {
-            foreach (var player in session.Values)
+            foreach (var player in players)
                 player.Revealed = false;
 
-            await Clients.Group(sessionId).SendAsync("PlayersUpdated", session.Values);
+            await Clients.Group(sessionId).SendAsync("PlayersUpdated", players);
         }
     }
 
     public async Task Reset(string sessionId)
     {
-        if (Sessions.TryGetValue(sessionId, out var session))
+        if (Sessions.TryGetValue(sessionId, out var players))
         {
-            foreach (var player in session.Values)
+            foreach (var player in players)
             {
                 player.Vote = string.Empty;
                 player.HasVoted = false;
                 player.Revealed = false;
             }
 
-            await Clients.Group(sessionId).SendAsync("PlayersUpdated", session.Values);
+            await Clients.Group(sessionId).SendAsync("PlayersUpdated", players);
         }
     }
 
     public async Task UpdatePlayerName(string sessionId, string newName)
     {
-        if(Sessions.TryGetValue(sessionId, out var players))
+        if (Sessions.TryGetValue(sessionId, out var players))
         {
-            var connectionId = Context.ConnectionId;
-
-            // find the player by connection id
-            if (players.TryGetValue(connectionId, out var player))
+            var player = players.FirstOrDefault(p => p.ConnectionId == Context.ConnectionId);
+            if (player != null)
             {
                 player.Name = newName;
-
-                // notify everyone in the same session
-                await Clients.Group(sessionId).SendAsync("PlayersUpdated", players.Values);
+                await Clients.Group(sessionId).SendAsync("PlayersUpdated", players);
             }
         }
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        foreach (var session in Sessions.Values)
+        foreach (var (sessionId, players) in Sessions)
         {
-            if (session.Remove(Context.ConnectionId))
+            var player = players.FirstOrDefault(p => p.ConnectionId == Context.ConnectionId);
+            if (player != null)
+            {
+                players.Remove(player);
+                await Clients.Group(sessionId).SendAsync("PlayersUpdated", players);
                 break;
+            }
         }
 
-        foreach (var (id, players) in Sessions)
-        {
-            await Clients.Group(id).SendAsync("PlayersUpdated", players.Values);
-        }
+        await base.OnDisconnectedAsync(exception);
     }
 }
