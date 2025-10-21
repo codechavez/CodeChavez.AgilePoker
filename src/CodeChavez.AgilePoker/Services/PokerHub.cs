@@ -9,7 +9,10 @@ public class PokerHub : Hub
 
     public async Task Join(string sessionId, string playerName)
     {
-        var ip = Context.GetHttpContext()?.Connection.RemoteIpAddress?.ToString();
+        var httpContext = Context.GetHttpContext();
+        var forwarded = httpContext?.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        var ip = forwarded ?? httpContext?.Connection.RemoteIpAddress?.ToString();
+
         if (string.IsNullOrEmpty(ip))
         {
             await Clients.Caller.SendAsync("Error", "Could not determine IP address.");
