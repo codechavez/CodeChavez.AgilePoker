@@ -20,6 +20,13 @@
 <MudAppBar Elevation="1" Dense="true">
     <MudText>Agile Poker</MudText>
     <MudSpacer />
+    <MudButton Variant="Variant.Text"
+               Color="Color.Error"
+               OnClick="EndSession"
+               StartIcon="@Icons.Material.Filled.Close"
+               Style="margin-right: 15px;"
+               Size="Size.Small">End Session</MudButton>
+
     <MudIconButton Color="Color.Inherit" Href="https://github.com/codechavez" Target="_blank" Style="padding:0;">
         <img src="/logos/codechavez.png" alt="CodeChavez" style="width:24px; height:24px;" />
     </MudIconButton>
@@ -135,12 +142,14 @@ else
                 <MudText><b>4</b> When ready to reveal, just one person click on the "Reveal" button.</MudText>
                 <MudText><b>5</b> Remember to "Reset"" the vote for the next round.</MudText>
 
-                <MudText Typo="Typo.h6">Term of Use: This is offer free of charge therefore, by using this application/website you are automatically releasing the author of ANY responsibility or lialibility.</MudText>
+                <MudText Typo="Typo.h6">Term of Use: This is offer free of charge therefore, by using this application/website you are automatically releasing the author of ANY responsibility or liability.</MudText>
             </MudStack>
         </MudItem>
     </MudGrid>
 }
 @code {
+    private string playerId = "";
+    private bool initialized = false;
     private string? selectedCard = null;
     private double averageVote = 0.0;
     private bool isReadOnlyPlayerName = true;
@@ -162,12 +171,56 @@ else
             _navManager.NavigateTo($"/?session={sessionId}", forceLoad: true);
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !initialized)
+        {
+            initialized = true;
+
+            // Get session ID
+            var uri = _navManager.ToAbsoluteUri(_navManager.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            sessionId = query["session"] ?? Guid.NewGuid().ToString();
+
+            if (!uri.Query.Contains("session"))
+                _navManager.NavigateTo($"/?session={sessionId}", forceLoad: true);
+
+            // Get or create playerId
+            playerId = await JS.InvokeAsync<string>("localStorage.getItem", "agilepoker_playerId");
+            if (string.IsNullOrWhiteSpace(playerId))
+            {
+                playerId = Guid.NewGuid().ToString();
+                await JS.InvokeVoidAsync("localStorage.setItem", "agilepoker_playerId", playerId);
+            }
+
+            // Get stored player name
+            var storedName = await JS.InvokeAsync<string>("localStorage.getItem", "agilepoker_playerName");
+            if (!string.IsNullOrWhiteSpace(storedName))
+            {
+                playerName = storedName;
+                await Connect();
+                StateHasChanged();
+            }
+        }
+    }
+
     private async Task Connect()
     {
+        if (string.IsNullOrWhiteSpace(playerName))
+        {
+            Snackbar.Add("Player name is required.", Severity.Warning);
+            return;
+        }
+
+
+        await JS.InvokeVoidAsync("localStorage.setItem", "agilepoker_playerName", playerName);
+
+
         hub = new HubConnectionBuilder()
         .WithUrl(_navManager.ToAbsoluteUri("/pokerhub"))
         .WithAutomaticReconnect()
         .Build();
+
 
         hub.On<IEnumerable<PlayerVote>>("PlayersUpdated", (data) =>
         {
@@ -176,10 +229,25 @@ else
             InvokeAsync(StateHasChanged);
         });
 
+
+        hub.On("SessionEnded", async () =>
+        {
+            await JS.InvokeVoidAsync("localStorage.removeItem", "agilepoker_playerName");
+            connected = false;
+            players.Clear();
+            selectedCard = null;
+            isVotesRevealed = false;
+            averageVote = 0;
+            Snackbar.Add("This session has ended.", Severity.Info);
+            StateHasChanged();
+        });
+
+
         await hub.StartAsync();
-        await hub.SendAsync("Join", sessionId, playerName);
+        await hub.SendAsync("Join", sessionId, playerName, playerId);
         connected = true;
     }
+
 
     private async Task SendVote(string vote)
     {
@@ -260,5 +328,17 @@ else
         }
 
         averageVote = Math.Round(numericVotes.Average(), 2);
+    }
+
+    private async Task EndSession()
+    {
+        if (hub is not null)
+        {
+            await hub.SendAsync("EndSession", sessionId);
+            Snackbar.Add("Session ended.", Severity.Success);
+            _navManager.NavigateTo("/", forceLoad: true);
+        }
+
+
     }
 }

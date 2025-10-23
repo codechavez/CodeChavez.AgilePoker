@@ -8,4 +8,5 @@ public class PlayerVote
     public bool Revealed { get; set; } = false;
     public string ConnectionId { get; set; } = string.Empty;
     public string IpAddress { get; set; } = string.Empty;
+    public string PlayerId { get; set; } = string.Empty;
 }

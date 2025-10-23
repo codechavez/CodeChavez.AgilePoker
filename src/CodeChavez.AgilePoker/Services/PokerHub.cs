@@ -7,27 +7,16 @@ public class PokerHub : Hub
 {
     private static readonly Dictionary<string, List<PlayerVote>> Sessions = new();
 
-    public async Task Join(string sessionId, string playerName)
+    public async Task Join(string sessionId, string playerName, string playerId)
     {
-        var httpContext = Context.GetHttpContext();
-        var forwarded = httpContext?.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        var ip = forwarded ?? httpContext?.Connection.RemoteIpAddress?.ToString();
-
-        if (string.IsNullOrEmpty(ip))
-        {
-            await Clients.Caller.SendAsync("Error", "Could not determine IP address.");
-            return;
-        }
-
         if (!Sessions.ContainsKey(sessionId))
             Sessions[sessionId] = [];
 
         var players = Sessions[sessionId];
 
-        var existing = players.FirstOrDefault(p => p.IpAddress == ip);
+        var existing = players.FirstOrDefault(p => p.PlayerId == playerId);
         if (existing != null)
         {
-            // Option A: Replace old connection
             existing.ConnectionId = Context.ConnectionId;
             existing.Name = playerName;
             existing.Revealed = false;
@@ -35,18 +24,23 @@ public class PokerHub : Hub
         }
         else
         {
-            // Option B: Allow new connection if IP is not used
+            var httpContext = Context.GetHttpContext();
+            var forwarded = httpContext?.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+            var ip = forwarded ?? httpContext?.Connection.RemoteIpAddress?.ToString();
+
             players.Add(new PlayerVote
             {
                 Name = playerName,
                 ConnectionId = Context.ConnectionId,
-                IpAddress = ip
+                IpAddress = ip ?? "unknown",
+                PlayerId = playerId
             });
         }
 
         await Groups.AddToGroupAsync(Context.ConnectionId, sessionId);
         await Clients.Group(sessionId).SendAsync("PlayersUpdated", players);
     }
+
 
     public async Task Vote(string sessionId, string vote)
     {
@@ -127,4 +121,18 @@ public class PokerHub : Hub
 
         await base.OnDisconnectedAsync(exception);
     }
+
+    public async Task EndSession(string sessionId)
+    {
+        if (Sessions.TryGetValue(sessionId, out var players))
+        {
+            foreach (var player in players)
+            {
+                await Clients.Client(player.ConnectionId).SendAsync("SessionEnded");
+            }
+
+            Sessions.Remove(sessionId);
+        }
+    }
+
 }

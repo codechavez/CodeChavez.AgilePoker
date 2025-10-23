@@ -35,9 +35,9 @@ jobs:
               
             - name: 🐳 Build Docker image
               run: |
-                docker build -f .docker/agile.poker.Dockerfile -t teslacode/codechavez.agile.poker:1.0.0 .
+                docker build -f .docker/agile.poker.Dockerfile -t teslacode/codechavez.agile.poker:latest .
 
             - name: 📤 Push Docker image to Docker Hub
               run: |
-                docker push teslacode/codechavez.agile.poker:1.0.0
+                docker push teslacode/codechavez.agile.poker:latest
 
